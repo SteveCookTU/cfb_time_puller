@@ -1,9 +1,9 @@
-var cacheName = 'egui-template-pwa';
+var cacheName = 'cfb-time-puller-pwa';
 var filesToCache = [
   './',
   './index.html',
-  './eframe_template.js',
-  './eframe_template_bg.wasm',
+  './cfb_time_puller.js',
+  './cfb_time_puller_bg.wasm',
 ];
 
 /* Start the service worker and cache all of the app's content */
