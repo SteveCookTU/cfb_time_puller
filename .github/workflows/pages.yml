@@ -17,6 +17,7 @@ permissions:
 jobs:
   build-github-pages:
     runs-on: ubuntu-latest
+    environment: github-pages
     steps:
       - uses: actions/checkout@v2 # repo checkout
       - uses: actions-rs/toolchain@v1 # get rust toolchain for wasm
