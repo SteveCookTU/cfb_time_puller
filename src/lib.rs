@@ -1,6 +1,5 @@
 use serde::Deserialize;
 use std::collections::BTreeMap;
-use std::env;
 use std::fmt::{Display, Formatter};
 use std::sync::{Arc, Mutex};
 use time::format_description::well_known;
@@ -56,7 +55,22 @@ pub struct Result {
     pub end_trans: String,
 }
 
+pub fn get_teams(token: String, teams_arc: Arc<Mutex<Vec<Team>>>) {
+    let mut headers = BTreeMap::new();
+    headers.insert("accepts".to_string(), "application/json".to_string());
+    headers.insert("Authorization".to_string(), format!("Bearer {token}"));
+    let mut request =
+        ehttp::Request::get("https://api.collegefootballdata.com/teams/fbs?year=2022");
+    request.headers = headers;
+
+    ehttp::fetch(request, move |response| {
+        let teams = serde_json::from_str::<Vec<Team>>(response.unwrap().text().unwrap()).unwrap();
+        *teams_arc.lock().unwrap() = teams;
+    });
+}
+
 pub fn get_results(
+    token: String,
     team: Team,
     year: u16,
     week: u8,
@@ -75,8 +89,6 @@ pub fn get_results(
         offset += 1;
     }
 
-    let token = env::var("CFB_TOKEN").unwrap();
-
     let mut headers = BTreeMap::new();
     headers.insert("accepts".to_string(), "application/json".to_string());
     headers.insert("Authorization".to_string(), format!("Bearer {token}"));
@@ -90,8 +102,6 @@ pub fn get_results(
         let game = serde_json::from_str::<Vec<Game>>(response.unwrap().text().unwrap()).unwrap();
 
         if !game.is_empty() {
-            let token = env::var("CFB_TOKEN").unwrap();
-
             let mut headers = BTreeMap::new();
             headers.insert("accepts".to_string(), "application/json".to_string());
             headers.insert("Authorization".to_string(), format!("Bearer {token}"));

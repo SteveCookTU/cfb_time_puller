@@ -1,9 +1,7 @@
-use crate::{get_results, Team, TimeZone};
+use crate::{get_results, get_teams, Team, TimeZone};
 use eframe::egui::{vec2, Context};
 use eframe::{egui, Frame};
 use egui_extras::{Size, TableBuilder};
-use std::collections::BTreeMap;
-use std::env;
 use std::sync::{Arc, Mutex};
 
 impl PartialEq for Team {
@@ -21,37 +19,20 @@ pub struct CfbTimePuller {
     desired_timezone: TimeZone,
     dst: bool,
     results: Arc<Mutex<Vec<crate::Result>>>,
+    auth: String,
 }
 
 impl CfbTimePuller {
     pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
-        let teams = Arc::new(Mutex::new(Vec::new()));
-
-        let token = env::var("CFB_TOKEN").unwrap();
-
-        let mut headers = BTreeMap::new();
-        headers.insert("accepts".to_string(), "application/json".to_string());
-        headers.insert("Authorization".to_string(), format!("Bearer {token}"));
-        let mut request =
-            ehttp::Request::get("https://api.collegefootballdata.com/teams/fbs?year=2022");
-        request.headers = headers;
-
-        let teams_clone = teams.clone();
-
-        ehttp::fetch(request, move |response| {
-            let teams =
-                serde_json::from_str::<Vec<Team>>(response.unwrap().text().unwrap()).unwrap();
-            *teams_clone.lock().unwrap() = teams;
-        });
-
         Self {
-            teams,
+            teams: Arc::new(Mutex::new(Vec::new())),
             team: None,
             year: 2022,
             week: 1,
             desired_timezone: TimeZone::Eastern,
             dst: false,
             results: Arc::new(Mutex::new(Vec::new())),
+            auth: "".to_string(),
         }
     }
 }
@@ -61,6 +42,12 @@ impl eframe::App for CfbTimePuller {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.vertical(|ui| {
+                    ui.text_edit_singleline(&mut self.auth);
+                    ui.add_space(5.0);
+                    if ui.button("Authenticate").clicked() {
+                        get_teams(self.auth.clone(), self.teams.clone());
+                    }
+                    ui.add_space(10.0);
                     egui::Grid::new("filters")
                         .num_columns(2)
                         .spacing(vec2(5.0, 5.0))
@@ -125,6 +112,7 @@ impl eframe::App for CfbTimePuller {
                         if let Some(team) = &self.team {
                             let clone = self.results.clone();
                             get_results(
+                                self.auth.clone(),
                                 team.clone(),
                                 self.year,
                                 self.week,
