@@ -1,9 +1,6 @@
 use serde::Deserialize;
-use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
 use std::sync::{Arc, Mutex};
-use time::format_description::well_known;
-use time::{OffsetDateTime, UtcOffset};
 
 pub mod app;
 
@@ -23,14 +20,15 @@ pub enum TimeZone {
     Pacific,
 }
 
-#[derive(Deserialize)]
-struct Game {
-    start_date: String,
-}
-
-#[derive(Deserialize)]
-struct Play {
-    wallclock: String,
+impl TimeZone {
+    fn to_suffix(self) -> &'static str {
+        match self {
+            TimeZone::Eastern => "ET",
+            TimeZone::Central => "CT",
+            TimeZone::Mountain => "MT",
+            TimeZone::Pacific => "PT",
+        }
+    }
 }
 
 impl Display for TimeZone {
@@ -44,7 +42,7 @@ impl Display for TimeZone {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize)]
 pub struct Result {
     pub team: String,
     pub start: String,
@@ -55,22 +53,7 @@ pub struct Result {
     pub end_trans: String,
 }
 
-pub fn get_teams(token: String, teams_arc: Arc<Mutex<Vec<Team>>>) {
-    let mut headers = BTreeMap::new();
-    headers.insert("accepts".to_string(), "application/json".to_string());
-    headers.insert("Authorization".to_string(), format!("Bearer {token}"));
-    let mut request =
-        ehttp::Request::get("https://api.collegefootballdata.com/teams/fbs?year=2022");
-    request.headers = headers;
-
-    ehttp::fetch(request, move |response| {
-        let teams = serde_json::from_str::<Vec<Team>>(response.unwrap().text().unwrap()).unwrap();
-        *teams_arc.lock().unwrap() = teams;
-    });
-}
-
 pub fn get_results(
-    token: String,
     team: Team,
     year: u16,
     week: u8,
@@ -89,94 +72,20 @@ pub fn get_results(
         offset += 1;
     }
 
-    let mut headers = BTreeMap::new();
-    headers.insert("accepts".to_string(), "application/json".to_string());
-    headers.insert("Authorization".to_string(), format!("Bearer {token}"));
-    let mut request = ehttp::Request::get(format!(
-        "https://api.collegefootballdata.com/games?year={}&week={}&seasonType=regular&team={}",
-        year, week, team.school
+    let request = ehttp::Request::get(format!(
+        "http://18.191.220.43:8080/time?year={}&week={}&offset={}&team={}",
+        year, week, offset, team.school
     ));
-    request.headers = headers;
 
     ehttp::fetch(request, move |response| {
-        let game = serde_json::from_str::<Vec<Game>>(response.unwrap().text().unwrap()).unwrap();
+        let mut result = serde_json::from_str::<Result>(response.unwrap().text().unwrap()).unwrap();
+        result.start = format!("{} UTC", result.start);
+        result.kickoff = format!("{} UTC", result.kickoff);
+        result.end = format!("{} UTC", result.end);
 
-        if !game.is_empty() {
-            let mut headers = BTreeMap::new();
-            headers.insert("accepts".to_string(), "application/json".to_string());
-            headers.insert("Authorization".to_string(), format!("Bearer {token}"));
-            let mut request = ehttp::Request::get(format!("https://api.collegefootballdata.com/plays?seasonType=regular&year={}&week={}&team={}", year, week, team.school));
-            request.headers = headers;
-
-            let clone = results.clone();
-
-            ehttp::fetch(request, move |response| {
-                let start_time =
-                    OffsetDateTime::parse(&game.first().unwrap().start_date, &well_known::Rfc3339)
-                        .expect("Failed to parse start date");
-                let start_time_trans =
-                    start_time.to_offset(UtcOffset::from_hms(offset, 0, 0).unwrap());
-
-                let start = format!("{:0>2}:{:0>2}", start_time.hour(), start_time.minute());
-                let start_trans = format!(
-                    "{:0>2}:{:0>2}",
-                    start_time_trans.hour(),
-                    start_time_trans.minute()
-                );
-
-                let plays =
-                    serde_json::from_str::<Vec<Play>>(response.unwrap().text().unwrap()).unwrap();
-
-                if !plays.is_empty() {
-                    let first = plays.first().unwrap();
-                    let last = plays.last().unwrap();
-                    let kickoff_time =
-                        OffsetDateTime::parse(&first.wallclock, &well_known::Rfc3339)
-                            .expect("Failed to parse kickoff time");
-                    let kickoff_time_trans =
-                        kickoff_time.to_offset(UtcOffset::from_hms(offset, 0, 0).unwrap());
-
-                    let kickoff =
-                        format!("{:0>2}:{:0>2}", kickoff_time.hour(), kickoff_time.minute());
-                    let kickoff_trans = format!(
-                        "{:0>2}:{:0>2}",
-                        kickoff_time_trans.hour(),
-                        kickoff_time_trans.minute()
-                    );
-
-                    let end_time = OffsetDateTime::parse(&last.wallclock, &well_known::Rfc3339)
-                        .expect("Failed to parse end time");
-                    let end_time_trans =
-                        end_time.to_offset(UtcOffset::from_hms(offset, 0, 0).unwrap());
-
-                    let end = format!("{:0>2}:{:0>2}", end_time.hour(), end_time.minute());
-                    let end_trans = format!(
-                        "{:0>2}:{:0>2}",
-                        end_time_trans.hour(),
-                        end_time_trans.minute()
-                    );
-
-                    clone.lock().unwrap().push(Result {
-                        team: team.school.clone(),
-                        start,
-                        kickoff,
-                        end,
-                        start_trans,
-                        kickoff_trans,
-                        end_trans,
-                    });
-                } else {
-                    results.lock().unwrap().push(Result {
-                        team: team.school.clone(),
-                        start,
-                        kickoff: "".to_string(),
-                        end: "".to_string(),
-                        start_trans,
-                        kickoff_trans: "".to_string(),
-                        end_trans: "".to_string(),
-                    });
-                }
-            });
-        }
+        result.start_trans = format!("{} {}", result.start_trans, target_tz.to_suffix());
+        result.kickoff_trans = format!("{} {}", result.kickoff_trans, target_tz.to_suffix());
+        result.end_trans = format!("{} {}", result.end_trans, target_tz.to_suffix());
+        results.lock().unwrap().push(result);
     });
 }
