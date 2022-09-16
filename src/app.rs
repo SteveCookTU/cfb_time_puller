@@ -4,12 +4,6 @@ use eframe::{egui, Frame};
 use egui_extras::{Size, TableBuilder};
 use std::sync::{Arc, Mutex};
 
-impl PartialEq for Team {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
 #[derive(Default)]
 pub struct CfbTimePuller {
     teams: Arc<Mutex<Vec<Team>>>,
@@ -26,7 +20,7 @@ impl CfbTimePuller {
         let teams = Arc::new(Mutex::new(Vec::new()));
         let clone = teams.clone();
 
-        let request = ehttp::Request::get("http://18.191.220.43:8080/teams");
+        let request = ehttp::Request::get("https://war-helper.com/teams");
 
         ehttp::fetch(request, move |response| {
             let text = response.unwrap().text().unwrap().to_string();

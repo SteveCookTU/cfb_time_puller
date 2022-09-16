@@ -4,6 +4,12 @@ use std::sync::{Arc, Mutex};
 
 pub mod app;
 
+impl PartialEq for Team {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
 #[derive(Deserialize, Clone)]
 pub struct Team {
     pub id: u16,
@@ -73,7 +79,7 @@ pub fn get_results(
     }
 
     let request = ehttp::Request::get(format!(
-        "http://18.191.220.43:8080/time?year={}&week={}&offset={}&team={}",
+        "https://war-helper.com/time?year={}&week={}&offset={}&team={}",
         year, week, offset, team.school
     ));
 
