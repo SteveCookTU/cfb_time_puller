@@ -4,18 +4,6 @@ use std::sync::{Arc, Mutex};
 
 pub mod app;
 
-impl PartialEq for Team {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
-#[derive(Deserialize, Clone)]
-pub struct Team {
-    pub id: u16,
-    pub school: String,
-}
-
 #[derive(Copy, Clone, PartialOrd, PartialEq, Default, Ord, Eq)]
 #[repr(u8)]
 pub enum TimeZone {
@@ -57,14 +45,16 @@ pub struct Result {
     pub start_trans: String,
     pub kickoff_trans: String,
     pub end_trans: String,
+    pub date: String,
 }
 
 pub fn get_results(
-    team: Team,
+    outlet: &str,
     year: u16,
     week: u8,
     target_tz: TimeZone,
     dst: bool,
+    date: String,
     results: Arc<Mutex<Vec<Result>>>,
 ) {
     let mut offset = match target_tz {
@@ -79,19 +69,30 @@ pub fn get_results(
     }
 
     let request = ehttp::Request::get(format!(
-        "https://war-helper.com/time?year={}&week={}&offset={}&team={}",
-        year, week, offset, team.school
+        "https://war-helper.com/time?year={}&week={}&offset={}&outlet={}",
+        year, week, offset, outlet
     ));
 
-    ehttp::fetch(request, move |response| {
-        let mut result = serde_json::from_str::<Result>(response.unwrap().text().unwrap()).unwrap();
-        result.start = format!("{} UTC", result.start);
-        result.kickoff = format!("{} UTC", result.kickoff);
-        result.end = format!("{} UTC", result.end);
+    let date = date.trim_end_matches("UTC").to_string();
 
-        result.start_trans = format!("{} {}", result.start_trans, target_tz.to_suffix());
-        result.kickoff_trans = format!("{} {}", result.kickoff_trans, target_tz.to_suffix());
-        result.end_trans = format!("{} {}", result.end_trans, target_tz.to_suffix());
-        results.lock().unwrap().push(result);
+    ehttp::fetch(request, move |response| {
+        let mut result = serde_json::from_str::<Vec<Result>>(response.unwrap().text().unwrap()).unwrap();
+
+        result = result.into_iter().filter_map(|mut r| {
+            if r.date == date {
+                r.start = format!("{} UTC", r.start);
+                r.kickoff = format!("{} UTC", r.kickoff);
+                r.end = format!("{} UTC", r.end);
+
+                r.start_trans = format!("{} {}", r.start_trans, target_tz.to_suffix());
+                r.kickoff_trans = format!("{} {}", r.kickoff_trans, target_tz.to_suffix());
+                r.end_trans = format!("{} {}", r.end_trans, target_tz.to_suffix());
+                Some(r)
+            } else {
+                None
+            }
+        }).collect();
+
+        *results.lock().unwrap() = result;
     });
 }
