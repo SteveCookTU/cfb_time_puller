@@ -1,9 +1,9 @@
 use crate::{get_results, TimeZone};
+use chrono::{Date, Utc};
 use eframe::egui::{vec2, Context};
 use eframe::{egui, Frame};
 use egui_extras::{Size, TableBuilder};
 use std::sync::{Arc, Mutex};
-use chrono::{Date, Utc};
 
 pub struct CfbTimePuller {
     outlet: String,
@@ -24,7 +24,7 @@ impl CfbTimePuller {
             desired_timezone: TimeZone::Eastern,
             dst: false,
             results: Arc::new(Mutex::new(Vec::new())),
-            date: Utc::today()
+            date: Utc::today(),
         }
     }
 }
@@ -44,22 +44,54 @@ impl eframe::App for CfbTimePuller {
                                 .selected_text(&self.outlet)
                                 .show_ui(ui, |ui| {
                                     ui.selectable_value(&mut self.outlet, "ABC".to_string(), "ABC");
-                                    ui.selectable_value(&mut self.outlet, "ACCN".to_string(), "ACCN");
+                                    ui.selectable_value(
+                                        &mut self.outlet,
+                                        "ACCN".to_string(),
+                                        "ACCN",
+                                    );
                                     ui.selectable_value(&mut self.outlet, "BTN".to_string(), "BTN");
-                                    ui.selectable_value(&mut self.outlet, "CBSSN".to_string(), "CBSSN");
+                                    ui.selectable_value(
+                                        &mut self.outlet,
+                                        "CBSSN".to_string(),
+                                        "CBSSN",
+                                    );
                                     ui.selectable_value(&mut self.outlet, "CBS".to_string(), "CBS");
-                                    ui.selectable_value(&mut self.outlet, "ESPN".to_string(), "ESPN");
-                                    ui.selectable_value(&mut self.outlet, "ESP2".to_string(), "ESP2");
+                                    ui.selectable_value(
+                                        &mut self.outlet,
+                                        "ESPN".to_string(),
+                                        "ESPN",
+                                    );
+                                    ui.selectable_value(
+                                        &mut self.outlet,
+                                        "ESPN2".to_string(),
+                                        "ESPN2",
+                                    );
                                     ui.selectable_value(&mut self.outlet, "NBC".to_string(), "NBC");
-                                    ui.selectable_value(&mut self.outlet, "NFLN".to_string(), "NFLN");
-                                    ui.selectable_value(&mut self.outlet, "PAC12".to_string(), "PAC12");
+                                    ui.selectable_value(
+                                        &mut self.outlet,
+                                        "NFLN".to_string(),
+                                        "NFLN",
+                                    );
+                                    ui.selectable_value(
+                                        &mut self.outlet,
+                                        "PAC12".to_string(),
+                                        "PAC12",
+                                    );
                                     ui.selectable_value(&mut self.outlet, "FOX".to_string(), "FOX");
                                     ui.selectable_value(&mut self.outlet, "FS1".to_string(), "FS1");
-                                    ui.selectable_value(&mut self.outlet, "SECN".to_string(), "SECN");
+                                    ui.selectable_value(
+                                        &mut self.outlet,
+                                        "SECN".to_string(),
+                                        "SECN",
+                                    );
                                 });
                             ui.end_row();
                             ui.label("Date: ");
-                            ui.add(egui_extras::DatePickerButton::new(&mut self.date).id_source("dt_picker").calendar(true));
+                            ui.add(
+                                egui_extras::DatePickerButton::new(&mut self.date)
+                                    .id_source("dt_picker")
+                                    .calendar(true),
+                            );
                             ui.end_row();
                             ui.label("Year: ");
                             ui.add(egui::DragValue::new(&mut self.year).clamp_range(0..=2022));

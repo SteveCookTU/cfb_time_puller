@@ -76,22 +76,26 @@ pub fn get_results(
     let date = date.trim_end_matches("UTC").to_string();
 
     ehttp::fetch(request, move |response| {
-        let mut result = serde_json::from_str::<Vec<Result>>(response.unwrap().text().unwrap()).unwrap();
+        let mut result =
+            serde_json::from_str::<Vec<Result>>(response.unwrap().text().unwrap()).unwrap();
 
-        result = result.into_iter().filter_map(|mut r| {
-            if r.date == date {
-                r.start = format!("{} UTC", r.start);
-                r.kickoff = format!("{} UTC", r.kickoff);
-                r.end = format!("{} UTC", r.end);
+        result = result
+            .into_iter()
+            .filter_map(|mut r| {
+                if r.date == date {
+                    r.start = format!("{} UTC", r.start);
+                    r.kickoff = format!("{} UTC", r.kickoff);
+                    r.end = format!("{} UTC", r.end);
 
-                r.start_trans = format!("{} {}", r.start_trans, target_tz.to_suffix());
-                r.kickoff_trans = format!("{} {}", r.kickoff_trans, target_tz.to_suffix());
-                r.end_trans = format!("{} {}", r.end_trans, target_tz.to_suffix());
-                Some(r)
-            } else {
-                None
-            }
-        }).collect();
+                    r.start_trans = format!("{} {}", r.start_trans, target_tz.to_suffix());
+                    r.kickoff_trans = format!("{} {}", r.kickoff_trans, target_tz.to_suffix());
+                    r.end_trans = format!("{} {}", r.end_trans, target_tz.to_suffix());
+                    Some(r)
+                } else {
+                    None
+                }
+            })
+            .collect();
 
         *results.lock().unwrap() = result;
     });
